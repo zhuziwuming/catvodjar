@@ -29,7 +29,7 @@ public class LocalFile extends Spider {
                 }
                 String pic = "https://img1.imgtp.com/2023/06/08/5Q9w3Lsx.png";
                 if(!f.isDirectory()){
-                    pic = "https://img1.imgtp.com/2023/06/08/u16i09XM.png";
+                    pic = "https://img1.imgtp.com/2023/06/08/kvsxrqpn.png";
                 }
                 JSONObject jSONObject2 = new JSONObject();
                 jSONObject2.put("vod_id", f.getAbsolutePath());
