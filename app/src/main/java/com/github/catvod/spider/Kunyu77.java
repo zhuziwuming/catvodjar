@@ -14,12 +14,7 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.net.URLEncoder;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 
 /**
@@ -28,13 +23,7 @@ import java.util.Set;
 public class Kunyu77 extends Spider {
     private final String siteUrl = "http://api.tyun77.cn";
 
-    private final String uAgent = "okhttp/3.12.0";
-
-    private HashMap<String, String> getHeaders(String url) {
-        HashMap<String, String> headers = new HashMap<>();
-        headers.put("user-agent", uAgent);
-        return headers;
-    }
+    private final Map<String, Boolean> hasNextPageMap = new HashMap<>();
 
     @Override
     public String homeContent(boolean filter) {
@@ -56,7 +45,7 @@ public class Kunyu77 extends Spider {
                 try {
                     if (extendsAll == null) {
                         String filterUrl = siteUrl + "/api.php/provide/searchFilter?type_id=0&pagenum=1&pagesize=1";
-                        String filterContent =getWebContent(filterUrl);
+                        String filterContent = getWebContent(filterUrl);
                         JSONObject filterObj = new JSONObject(filterContent).getJSONObject("data").getJSONObject("conditions");
                         extendsAll = new JSONArray();
                         // 年份
@@ -203,6 +192,15 @@ public class Kunyu77 extends Spider {
     @Override
     public String categoryContent(String tid, String pg, boolean filter, HashMap<String, String> extend) {
         try {
+            if (pg.equals("1")) {
+                hasNextPageMap.put(tid, true);
+            }
+            if (hasNextPageMap.containsKey(tid)) {
+                Boolean hasNextPage = hasNextPageMap.get(tid);
+                if (!hasNextPage) return "";
+            }
+
+
             String url = siteUrl + "/api.php/provide/searchFilter?type_id=" + tid + "&pagenum=" + pg + "&pagesize=24";
             Set<String> keys = extend.keySet();
             for (String key : keys) {
@@ -224,6 +222,13 @@ public class Kunyu77 extends Spider {
                 v.put("vod_remarks", vObj.getString("msg"));
                 videos.put(v);
             }
+
+            if (videos.length() == 0) {
+                hasNextPageMap.put(tid, false);
+                return "";
+            }
+
+
             JSONObject result = new JSONObject();
             int limit = 24;
             int page = Integer.parseInt(dataObject.getString("page"));
@@ -235,8 +240,8 @@ public class Kunyu77 extends Spider {
             result.put("total", total);
             result.put("list", videos);
             return result.toString();
-        } catch (Throwable th) {
-
+        } catch (Exception e) {
+            hasNextPageMap.put(tid, false);
         }
         return "";
     }
@@ -244,7 +249,7 @@ public class Kunyu77 extends Spider {
     @Override
     public String detailContent(List<String> ids) {
         try {
-            String url = siteUrl + "/api.php/provide/videoDetail?ids=" + ids.get(0);
+            String url = siteUrl + "/api.php/provide/videoDetail?devid=453CA5D864457C7DB4D0EAA93DE96E66&package=com.sevenVideo.app.android&version=&ids=" + ids.get(0);
             String content = getWebContent(url);
             JSONObject dataObject = new JSONObject(decryptResponse(content));
             JSONObject vObj = dataObject.getJSONObject("data");
@@ -263,7 +268,7 @@ public class Kunyu77 extends Spider {
             vodAtom.put("vod_director", vObj.getString("director"));
             vodAtom.put("vod_content", vObj.getString("brief").trim());
 
-            url = siteUrl + "/api.php/provide/videoPlaylist?ids=" + ids.get(0);
+            url = siteUrl + "/api.php/provide/videoPlaylist?devid=453CA5D864457C7DB4D0EAA93DE96E66&package=com.sevenVideo.app.android&version=&ids=" + ids.get(0);
             content = getWebContent(url);
             JSONArray episodes = new JSONObject(content).getJSONObject("data").getJSONArray("episodes");
             LinkedHashMap<String, ArrayList<String>> playlist = new LinkedHashMap<>();
