@@ -16,6 +16,9 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * @author zhixc
@@ -26,6 +29,8 @@ public class Bilituys extends Spider {
     private final String siteUrl = "https://www.bilituys.com";
 
     private final String userAgent = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36";
+
+    private final Map<String, Boolean> hasNextPageMap = new HashMap<>();
 
     /**
      * 首页内容
@@ -79,6 +84,14 @@ public class Bilituys extends Spider {
     @Override
     public String categoryContent(String tid, String pg, boolean filter, HashMap<String, String> extend) {
         try {
+            if (pg.equals("1")) {
+                hasNextPageMap.put(tid, true);
+            }
+            if (hasNextPageMap.containsKey(tid)) {
+                Boolean hasNextPage = hasNextPageMap.get(tid);
+                if (!hasNextPage) return "";
+            }
+
             HashMap<String, String> ext = new HashMap<>();
             if (extend != null && extend.size() > 0) {
                 ext.putAll(extend);
@@ -111,15 +124,18 @@ public class Bilituys extends Spider {
                         .put("vod_remarks", remark);
                 videos.put(vod);
             }
+            if (videos.length() == 0) {
+                hasNextPageMap.put(tid, false);
+                return "";
+            }
+
             JSONObject result = new JSONObject()
-                    .put("page", Integer.parseInt(pg))
-                    .put("pagecount", Integer.MAX_VALUE)
-                    .put("limit", lis.size())
-                    .put("total", Integer.MAX_VALUE)
+                    .put("pagecount", 999)
                     .put("list", videos);
             return result.toString();
         } catch (Exception e) {
             e.printStackTrace();
+            hasNextPageMap.put(tid, false);
         }
         return "";
     }
@@ -148,11 +164,10 @@ public class Bilituys extends Spider {
     public String detailContent(List<String> ids) {
         try {
             String detailUrl = ids.get(0);
-//            String durl = ids.get(0);
-            String content = getWebContent(detailUrl);
-            Document detailPage = Jsoup.parse(content);
-            Elements sourceList = detailPage.select("[class=stui-content__playlist sort-list maxheight clearfix]");
-            Elements sourceHeader = detailPage.select("h3[class=title]");
+            String html = getWebContent(detailUrl);
+            Document doc = Jsoup.parse(html);
+            Elements sourceList = doc.select("[class=stui-content__playlist sort-list maxheight clearfix]");
+            Elements sourceHeader = doc.select("h3[class=title]");
             StringBuilder vodPlayUrl = new StringBuilder(); // 线路/播放源 里面的各集的播放页面链接
             StringBuilder vodPlayFrom = new StringBuilder();  // 线路 / 播放源标题
             for (int i = 0; i < sourceList.size(); i++) {
@@ -168,67 +183,58 @@ public class Bilituys extends Spider {
                 }
             }
 
-            // 影片标题
-            String title = detailPage.select(".stui-content__detail")
-                    .get(0)
-                    .getElementsByTag("h1")
-                    .text();
-            // 图片
-            String pic = detailPage.select("[class=stui-content__thumb]")
-                    .select("img")
-                    .attr("data-original");
-            String text = detailPage.select(".stui-content__detail")
-                    .select("[class=data hidden-xs]")
-                    .get(0)
-                    .text();
-            String typeName = "";
-            String year = "";
-            String area = "";
-            String[] split = text.split("/");
-            if (split.length >= 3) {
-                typeName = split[0].replaceAll("类型：", "");
-                area = split[1].replaceAll("地区：", "");
-                year = split[2].replaceAll("年份：", "");
-            }
-            String remark = detailPage.select(".stui-content__detail")
-                    .select("[class=data hidden-xs]")
-                    .get(1)
-                    .text();
-            String actor = detailPage.select(".stui-content__detail")
-                    .select("p")
-                    .get(6)
-                    .select("a")
-                    .text();
-            String director = detailPage.select(".stui-content__detail")
-                    .select("p")
-                    .get(5)
-                    .select("a")
-                    .text();
-            String brief = detailPage.select(".stui-content__detail")
-                    .select("[class=desc detail]")
-                    .select(".detail-content")
-                    .text();
+            String name = doc.select("[class=title wdetail]").text();
+            String pic = doc.select("a[class=pic] > img").attr("data-original");
+            String typeName = getStrByRegex("类型：(.*?)/", html);
+            String year = getStrByRegex("年份：(.*?)</p>", html);
+            String area = getStrByRegex("地区：(.*?)/", html);
+            String remark = getStrByRegex("状态：.*?>(.*?)</span>", html);
+            String actor = getStrByRegex("主演：(.*?)</p>", html);
+            String director = getStrByRegex("导演：(.*?)</p>", html);
+            String description = doc.select(".detail-content").text();
 
             // 影片名称、图片等赋值
-            JSONObject vod = new JSONObject()
+            JSONObject vodObj = new JSONObject()
                     .put("vod_id", ids.get(0))
-                    .put("vod_name", title)
+                    .put("vod_name", name)
                     .put("vod_pic", pic)
                     .put("type_name", typeName) // 影片类型
                     .put("vod_year", year) // 影片年份
                     .put("vod_area", area) // 影片地区
-                    .put("vod_remarks", remark)
-                    .put("vod_actor", actor)
-                    .put("vod_director", director)
-                    .put("vod_content", brief)
-                    .put("vod_play_from", vodPlayFrom.toString())
-                    .put("vod_play_url", vodPlayUrl.toString());
+                    .put("vod_remarks", remark) // 备注
+                    .put("vod_actor", actor) // 主演
+                    .put("vod_director", director) // 导演
+                    .put("vod_content", description); // 简介
+            if (vodPlayUrl.length() > 0) {
+                vodObj.put("vod_play_from", vodPlayFrom.toString())
+                        .put("vod_play_url", vodPlayUrl.toString());
+            }
 
             JSONArray jsonArray = new JSONArray()
-                    .put(vod);
+                    .put(vodObj);
             JSONObject result = new JSONObject()
                     .put("list", jsonArray);
             return result.toString();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "";
+    }
+
+    private String getStrByRegex(String regexStr, String htmlStr) {
+        if (regexStr == null) {
+            return "";
+        }
+        try {
+            Pattern pattern = Pattern.compile(regexStr, Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+            Matcher matcher = pattern.matcher(htmlStr);
+            if (matcher.find()) {
+                return matcher.group(1)
+                        .trim()
+                        .replaceAll("</?[^>]+>", "")
+                        .replaceAll("&nbsp;", " ")
+                        .trim();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -274,13 +280,32 @@ public class Bilituys extends Spider {
     @Override
     public String playerContent(String flag, String id, List<String> vipFlags) {
         try {
+            String lastURL = id;
+            int parseFlag = 1;
+            String content = getWebContent(id);
+            Pattern pattern = Pattern.compile("player_aaaa=(.*?)</script>");
+            Matcher matcher = pattern.matcher(content);
+            if (matcher.find()) {
+                String url = new JSONObject(matcher.group(1).trim())
+                        .optString("url");
+                if (url.contains(".m3u8") || url.contains(".mp4")) {
+                    lastURL = url;
+                    parseFlag = 0;
+                }
+            }
             HashMap<String, String> header = new HashMap<>();
             header.put("user-agent", userAgent);
+            header.put("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
+            header.put("accept-encoding", "gzip, deflate, br");
+            header.put("accept-language", "zh-CN,zh;q=0.9");
+            header.put("referer", siteUrl + "/");
+            header.put("upgrade-insecure-requests", "1");
+
             JSONObject result = new JSONObject()
-                    .put("parse", 1)
+                    .put("parse", parseFlag)
                     .put("header", header)
                     .put("playUrl", "")
-                    .put("url", id);
+                    .put("url", lastURL);
             return result.toString();
         } catch (Exception e) {
             e.printStackTrace();
