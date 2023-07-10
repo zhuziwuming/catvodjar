@@ -11,10 +11,10 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -24,44 +24,99 @@ import java.util.regex.Pattern;
  */
 public class SixV extends Spider {
 
-    private String siteUrl = "https://www.66s.cc";
+    private String siteURL;
 
     private final String userAgent = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36";
+
+    private Map<String, String> getHeader() {
+        Map<String, String> header = new HashMap<>();
+        header.put("User-Agent", userAgent);
+        header.put("Referer", siteURL + "/");
+        return header;
+    }
+
+    private Map<String, String> getDetailHeader() {
+        Map<String, String> header = new HashMap<>();
+        header.put("User-Agent", userAgent);
+        return header;
+    }
 
     @Override
     public void init(Context context, String extend) {
         super.init(context, extend);
-        try {
-            if (extend.endsWith("/")) {
-                extend = extend.substring(0, extend.lastIndexOf("/"));
-            }
-            siteUrl = extend;
-        } catch (Exception e) {
-            e.printStackTrace();
+        if (extend.endsWith("/")) {
+            extend = extend.substring(0, extend.lastIndexOf("/"));
         }
+        siteURL = extend;
     }
 
     @Override
     public String homeContent(boolean filter) {
         try {
-            JSONObject movie = new JSONObject()
-                    .put("type_id", "my_tid_movie")
-                    .put("type_name", "电影");
+            JSONObject domesticTV = new JSONObject()
+                    .put("type_id", "dianshiju/guoju")
+                    .put("type_name", "国剧");
 
-            JSONObject tv = new JSONObject()
-                    .put("type_id", "my_tid_tv")
-                    .put("type_name", "电视剧");
+            JSONObject japaneseAndKoreanTV = new JSONObject()
+                    .put("type_id", "dianshiju/rihanju")
+                    .put("type_name", "日韩剧");
+
+            JSONObject europeanAndAmericanTV = new JSONObject()
+                    .put("type_id", "dianshiju/oumeiju")
+                    .put("type_name", "欧美剧");
+            
+            JSONObject comedyMovie = new JSONObject()
+                    .put("type_id", "xijupian")
+                    .put("type_name", "喜剧片");
+
+            JSONObject actMovie = new JSONObject()
+                    .put("type_id", "dongzuopian")
+                    .put("type_name", "动作片");
+
+            JSONObject loveFilm = new JSONObject()
+                    .put("type_id", "aiqingpian")
+                    .put("type_name", "爱情片");
+
+            JSONObject scientificMovie = new JSONObject()
+                    .put("type_id", "kehuanpian")
+                    .put("type_name", "科幻片");
+
+            JSONObject horribleMovie = new JSONObject()
+                    .put("type_id", "kongbupian")
+                    .put("type_name", "恐怖片");
+
+            JSONObject plotMovie = new JSONObject()
+                    .put("type_id", "juqingpian")
+                    .put("type_name", "剧情片");
+
+            JSONObject warMovie = new JSONObject()
+                    .put("type_id", "zhanzhengpian")
+                    .put("type_name", "战争片");
+
+            JSONObject documentaryMovie = new JSONObject()
+                    .put("type_id", "jilupian")
+                    .put("type_name", "纪录片");
+
+            JSONObject animeMovie = new JSONObject()
+                    .put("type_id", "donghuapian")
+                    .put("type_name", "动画片");
+
 
             JSONArray classes = new JSONArray()
-                    .put(movie)
-                    .put(tv);
-            // filter 二级筛选 start
-            String f = "{\"my_tid_movie\": [{\"key\": \"class\", \"name\": \"类型\", \"value\": [{\"n\": \"全部\", \"v\": \"\"}, {\"n\": \"喜剧片\", \"v\": \"xijupian\"}, {\"n\": \"动作片\", \"v\": \"dongzuopian\"}, {\"n\": \"爱情片\", \"v\": \"aiqingpian\"}, {\"n\": \"科幻片\", \"v\": \"kehuanpian\"}, {\"n\": \"恐怖片\", \"v\": \"kongbupian\"}, {\"n\": \"剧情片\", \"v\": \"juqingpian\"}, {\"n\": \"战争片\", \"v\": \"zhanzhengpian\"}, {\"n\": \"纪录片\", \"v\": \"jilupian\"}, {\"n\": \"动画片\", \"v\": \"donghuapian\"}]}], \"my_tid_tv\": [{\"key\": \"class\", \"name\": \"类型\", \"value\": [{\"n\": \"全部\", \"v\": \"dianshiju\"}, {\"n\": \"国剧\", \"v\": \"dianshiju/guoju\"}, {\"n\": \"日韩剧\", \"v\": \"dianshiju/rihanju\"}, {\"n\": \"欧美剧\", \"v\": \"dianshiju/oumeiju\"}]}]}";
-            JSONObject filterConfig = new JSONObject(f);
-            // filter 二级筛选 end
+                    .put(comedyMovie)
+                    .put(actMovie)
+                    .put(loveFilm)
+                    .put(scientificMovie)
+                    .put(horribleMovie)
+                    .put(plotMovie)
+                    .put(warMovie)
+                    .put(documentaryMovie)
+                    .put(animeMovie)
+                    .put(domesticTV)
+                    .put(japaneseAndKoreanTV)
+                    .put(europeanAndAmericanTV);
             JSONObject result = new JSONObject()
-                    .put("class", classes)
-                    .put("filters", filterConfig);
+                    .put("class", classes);
             return result.toString();
         } catch (Exception e) {
             e.printStackTrace();
@@ -72,31 +127,18 @@ public class SixV extends Spider {
     @Override
     public String categoryContent(String tid, String pg, boolean filter, HashMap<String, String> extend) {
         try {
-            // 筛选处理 start
-            HashMap<String, String> ext = new HashMap<>();
-            if (extend != null && extend.size() > 0) {
-                ext.putAll(extend);
-            }
-            String classType = ext.get("class") == null ? "" : ext.get("class");
-            // 筛选处理 end
-
-            if (tid.equals("my_tid_tv") && classType.equals("")) {
-                // 电视剧没有筛选时默认给个值
-                classType = "dianshiju";
-            }
-
-            String cateUrl = siteUrl + "/" + classType;
+            String cateURL = siteURL + "/" + tid;
             if (!pg.equals("1")) {
-                cateUrl += "/index_" + pg + ".html";
+                cateURL += "/index_" + pg + ".html";
             }
-            String content = getWebContent(cateUrl);
+            String content = getWebContent(cateURL, getHeader());
             Elements divElements = Jsoup.parse(content)
                     .select("#post_container")
                     .select("[class=post_hover]");
             JSONArray videos = new JSONArray();
             for (Element div : divElements) {
                 Element li = div.select("[class=zoom]").get(0);
-                String vid = siteUrl + li.attr("href");
+                String vid = siteURL + li.attr("href");
                 String name = li.attr("title");
                 String pic = li.select("img").attr("src");
                 String remark = div.select("[rel=category tag]").text();
@@ -118,15 +160,20 @@ public class SixV extends Spider {
         return "";
     }
 
-    private String getWebContent(String targetUrl) throws IOException {
-        Request request = new Request.Builder()
-                .url(targetUrl)
+    private String getWebContent(String targetURL, Map<String , String > header) throws Exception {
+        Request.Builder builder = new Request.Builder();
+        for (String key : header.keySet()) {
+            String value = header.get(key);
+            builder.addHeader(key, value);
+        }
+        Request request = builder
+                .url(targetURL)
                 .get()
-                .addHeader("User-Agent", userAgent)
                 .build();
         OkHttpClient okHttpClient = new OkHttpClient()
                 .newBuilder()
                 .sslSocketFactory(new SSLSocketFactoryCompat(), SSLSocketFactoryCompat.trustAllCert)
+                .hostnameVerifier((hostname, session) -> true)
                 .build();
         Response response = okHttpClient.newCall(request).execute();
         if (response.body() == null) return "";
@@ -138,8 +185,8 @@ public class SixV extends Spider {
     @Override
     public String detailContent(List<String> ids) {
         try {
-            String detailUrl = ids.get(0);
-            String content = getWebContent(detailUrl);
+            String detailURL = ids.get(0);
+            String content = getWebContent(detailURL, getDetailHeader());
             Document doc = Jsoup.parse(content);
             Elements sourceList = doc.select("#post_content");
             // 磁力链接只能选择一条，多了，TVBox就无法识别播放了。
@@ -199,14 +246,16 @@ public class SixV extends Spider {
                     .put("vod_remarks", remark)
                     .put("vod_actor", actor)
                     .put("vod_director", director)
-                    .put("vod_content", description)
-                    .put("vod_play_from", vod_play_from)
-                    .put("vod_play_url", vod_play_url);
+                    .put("vod_content", description);
+            if (vod_play_url.length() > 0) {
+                vodInfo.put("vod_play_from", vod_play_from)
+                        .put("vod_play_url", vod_play_url);
+            }
 
-            JSONArray listInfo = new JSONArray()
+            JSONArray jsonArray = new JSONArray()
                     .put(vodInfo);
             JSONObject result = new JSONObject()
-                    .put("list", listInfo);
+                    .put("list", jsonArray);
             return result.toString();
         } catch (Exception e) {
             e.printStackTrace();
@@ -215,9 +264,6 @@ public class SixV extends Spider {
     }
 
     private String getStrByRegex(Pattern pattern, String str) {
-        if (pattern == null) {
-            return "";
-        }
         try {
             Matcher matcher = pattern.matcher(str);
             if (matcher.find()) {
@@ -232,7 +278,7 @@ public class SixV extends Spider {
     @Override
     public String searchContent(String key, boolean quick) {
         try {
-            String searchUrl = siteUrl + "/e/search/index.php";
+            String searchURL = siteURL + "/e/search/index.php";
             RequestBody formBody = new FormBody.Builder()
                     .add("show", "title")
                     .add("tempid", "1")
@@ -240,27 +286,27 @@ public class SixV extends Spider {
                     .add("mid", "1")
                     .add("dopost", "search")
                     .add("submit", "")
-                    .addEncoded("keyboard", URLEncoder.encode(key, "utf8"))
+                    .addEncoded("keyboard", key)
                     .build();
             Request request = new Request.Builder()
-                    .url(searchUrl)
+                    .url(searchURL)
                     .addHeader("user-agent", userAgent)
                     .post(formBody)
                     .build();
             OkHttpClient okHttpClient = new OkHttpClient()
                     .newBuilder()
                     .sslSocketFactory(new SSLSocketFactoryCompat(), SSLSocketFactoryCompat.trustAllCert)
+                    .hostnameVerifier((hostname, session) -> true)
                     .build();
             Response response = okHttpClient.newCall(request).execute();
             if (response.body() == null) return "";
             String content = response.body().string();
             response.close(); // 关闭响应资源
-            Document doc = Jsoup.parse(content);
-            Elements list = doc.select("#post_container")
+            Elements items = Jsoup.parse(content).select("#post_container")
                     .select("[class=zoom]");
             JSONArray videos = new JSONArray();
-            for (Element item : list) {
-                String vid = siteUrl + item.attr("href");
+            for (Element item : items) {
+                String vid = siteURL + item.attr("href");
                 String name = item.attr("title").replaceAll("</?[^>]+>", "");
                 String pic = item.select("img").attr("src");
                 JSONObject vod = new JSONObject()
