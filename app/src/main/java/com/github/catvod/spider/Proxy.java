@@ -33,7 +33,12 @@ public class Proxy extends Spider {
         adjustLocalPort();
         return "http://127.0.0.1:" + Proxy.localPort + "/proxy";
     }
-
+/*
+    if (what.equals("parseMix")) {
+    String flag = params.get("flag");
+    String url = params.get("url");
+    return MixDemo.loadHtml(flag, url);
+} */
     public static Object[] proxy(Map<String, String> params) {
         try {
             String what = params.get("do");
