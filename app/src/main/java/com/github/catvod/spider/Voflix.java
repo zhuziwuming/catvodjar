@@ -3,10 +3,7 @@ package com.github.catvod.spider;
 import android.content.Context;
 import android.text.TextUtils;
 import com.github.catvod.crawler.Spider;
-import com.github.catvod.net.SSLSocketFactoryCompat;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
+import com.github.catvod.net.OkHttp;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.jsoup.Jsoup;
@@ -14,7 +11,6 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -30,7 +26,11 @@ public class Voflix extends Spider {
 
     private final String userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36";
 
-    private final Map<String, Boolean> hasNextPageMap = new HashMap<>();
+    private Map<String, String> getHeader() {
+        Map<String, String> header = new HashMap<>();
+        header.put("User-Agent", userAgent);
+        return header;
+    }
 
     /**
      * 爬虫代码初始化
@@ -104,7 +104,7 @@ public class Voflix extends Spider {
     public String homeVideoContent() {
         try {
             String hotURL = siteUrl + "/label/new.html";
-            String html = getWebContent(hotURL);
+            String html = OkHttp.string(hotURL, getHeader());
             Elements lis = Jsoup.parse(html)
                     .select("[class=module-items module-poster-items]")
                     .get(0)
@@ -143,15 +143,6 @@ public class Voflix extends Spider {
     @Override
     public String categoryContent(String tid, String pg, boolean filter, HashMap<String, String> extend) {
         try {
-            if (pg.equals("1")) {
-                hasNextPageMap.put(tid, true);
-            }
-            if (hasNextPageMap.containsKey(tid)) {
-                Boolean hasNextPage = hasNextPageMap.get(tid);
-                if (!hasNextPage) return "";
-            }
-
-
             // 筛选处理 start
             HashMap<String, String> ext = new HashMap<>();
             if (extend != null && extend.size() > 0) {
@@ -168,7 +159,7 @@ public class Voflix extends Spider {
             // https://www.voflix.com/show/1--------2---.html
 //            String cateUrl = siteUrl + String.format("/show/%s--------%s---.html", tid, pg);
             String cateUrl = siteUrl + String.format("/show/%s-%s-%s-%s-----%s---%s.html", cateId, area, by, classType, pg, year);
-            String content = getWebContent(cateUrl);
+            String content = OkHttp.string(cateUrl, getHeader());
             Elements lis = Jsoup.parse(content)
                     .select(".module-items")
                     .select(".module-item");
@@ -185,44 +176,14 @@ public class Voflix extends Spider {
                         .put("vod_remarks", remark);
                 videos.put(vod);
             }
-            if (videos.length() == 0) {
-                hasNextPageMap.put(tid, false);
-                return "";
-            }
-            
             JSONObject result = new JSONObject()
                     .put("pagecount", 999)
                     .put("list", videos);
             return result.toString();
         } catch (Exception e) {
             e.printStackTrace();
-            hasNextPageMap.put(tid, false);
         }
         return "";
-    }
-
-    /**
-     * 根据传入的URL获取网页源码
-     *
-     * @param targetUrl 请求的 URL
-     * @return 返回网页源码
-     * @throws IOException 抛出 IO 异常
-     */
-    private String getWebContent(String targetUrl) throws IOException {
-        Request request = new Request.Builder()
-                .url(targetUrl)
-                .get()
-                .addHeader("User-Agent", userAgent)
-                .build();
-        OkHttpClient okHttpClient = new OkHttpClient()
-                .newBuilder()
-                .sslSocketFactory(new SSLSocketFactoryCompat(), SSLSocketFactoryCompat.trustAllCert) // 取消证书认证
-                .build();
-        Response response = okHttpClient.newCall(request).execute();
-        if (response.body() == null) return "";
-        String content = response.body().string();
-        response.close();
-        return content;
     }
 
     /**
@@ -235,7 +196,7 @@ public class Voflix extends Spider {
     public String detailContent(List<String> ids) {
         try {
             String detailUrl = ids.get(0);
-            String html = getWebContent(detailUrl);
+            String html = OkHttp.string(detailUrl, getHeader());
             Document doc = Jsoup.parse(html);
             Elements sources = doc.select(".module-play-list");
             Elements circuits = doc.select(".module-tab-item");
@@ -344,7 +305,7 @@ public class Voflix extends Spider {
     public String searchContent(String key, boolean quick) {
         try {
             String url = siteUrl + "/index.php/ajax/suggest?mid=1&wd=" + URLEncoder.encode(key) + "&limit=20";
-            String content = getWebContent(url);
+            String content = OkHttp.string(url, getHeader());
             JSONArray list = new JSONObject(content).getJSONArray("list");
             JSONArray videos = new JSONArray();
             for (int i = 0; i < list.length(); i++) {
@@ -375,7 +336,7 @@ public class Voflix extends Spider {
             header.put("User-Agent", userAgent);
             JSONObject result = new JSONObject()
                     .put("parse", 1) // 1 表示需要嗅探， 0表示可以直连
-                    .put("header", header)
+                    .put("header", header.toString())
                     .put("playUrl", "")
                     .put("url", id);
             return result.toString();
