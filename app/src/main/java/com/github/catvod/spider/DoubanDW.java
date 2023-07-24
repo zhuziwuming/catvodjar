@@ -1,19 +1,15 @@
 package com.github.catvod.spider;
 
 import com.github.catvod.crawler.Spider;
-import com.github.catvod.net.SSLSocketFactoryCompat;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
+import com.github.catvod.net.OkHttp;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.net.URLEncoder;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-public class DoubanDW extends Spider {
+public class DoubanForTVBox extends Spider {
     private final String hostURL = "https://frodo.douban.com/api/v2";
     private final String apikey = "0ac44ae016490db2204ce0a042db2916";
 
@@ -25,8 +21,6 @@ public class DoubanDW extends Spider {
         header.put("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.143 Safari/537.36 MicroMessenger/7.0.9.501 NetType/WIFI MiniProgramEnv/Windows WindowsWechat");
         return header;
     }
-
-    private final Map<String, Boolean> hasNextPageMap = new HashMap<>();
 
     @Override
     public String homeContent(boolean filter) {
@@ -84,16 +78,6 @@ public class DoubanDW extends Spider {
     @Override
     public String categoryContent(String tid, String pg, boolean filter, HashMap<String, String> extend) {
         try {
-            // ----> 防止无限请求处理 start
-            if (pg.equals("1")) {
-                hasNextPageMap.put(tid, true);
-            }
-            if (hasNextPageMap.containsKey(tid)) {
-                Boolean hasNextPage = hasNextPageMap.get(tid);
-                if (!hasNextPage) return "";
-            }
-            // 防止无限请求处理 end <----
-
             HashMap<String, String> ext = new HashMap<>();
             if (extend != null && extend.size() > 0) {
                 ext.putAll(extend);
@@ -136,15 +120,9 @@ public class DoubanDW extends Spider {
                 default: // 电影筛选
                     cateURL = hostURL + "/movie/recommend" + "?apikey=" + apikey + "&sort=" + sort + "&tags=" + tags + "&start=" + start + "&count=20";
             }
-            String jsonStr = getWebContent(cateURL, getHeader());
+            String jsonStr = OkHttp.string(cateURL, getHeader());
             JSONObject jsonObject = new JSONObject(jsonStr);
             JSONArray items = jsonObject.getJSONArray(itemKey);
-            // ----> 防止无限请求处理 start
-            if (items.length() == 0) {
-                hasNextPageMap.put(tid, false);
-                return "";
-            }
-            // 防止无限请求处理 end <----
             JSONArray videos = new JSONArray();
             for (int i = 0; i < items.length(); i++) {
                 JSONObject item = items.getJSONObject(i);
@@ -166,32 +144,8 @@ public class DoubanDW extends Spider {
             return result.toString();
         } catch (Exception e) {
             e.printStackTrace();
-            // ----> 防止无限请求处理 start
-            hasNextPageMap.put(tid, false);
-            // 防止无限请求处理 end <----
         }
         return "";
-    }
-
-    private String getWebContent(String targetURL, Map<String, String> header) throws Exception {
-        Request.Builder builder = new Request.Builder()
-                .url(targetURL)
-                .get();
-        for (String key : header.keySet()) {
-            String value = header.get(key);
-            builder.addHeader(key, value);
-        }
-        Request request = builder.build();
-        OkHttpClient okHttpClient = new OkHttpClient()
-                .newBuilder()
-                .sslSocketFactory(new SSLSocketFactoryCompat(), SSLSocketFactoryCompat.trustAllCert)
-                .hostnameVerifier((hostname, session) -> true)
-                .build();
-        Response response = okHttpClient.newCall(request).execute();
-        if (response.body() == null) return "";
-        String str = response.body().string();
-        response.close();
-        return str;
     }
 
     private String getRating(JSONObject item) {
