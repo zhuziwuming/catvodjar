@@ -19,8 +19,8 @@ import java.util.*;
  */
 public class LocalFileV2 extends Spider {
 
-    private final String defaultMediaPic = "https://s1.ax1x.com/2023/05/04/p9tgogx.png";
-    private final String defaultFolderPic = "https://s1.ax1x.com/2023/05/04/p9tgI81.png";
+    private final String defaultMediaPic = "https://img1.imgtp.com/2023/06/08/u16i09XM.png";
+    private final String defaultFolderPic = "https://img1.imgtp.com/2023/06/08/5Q9w3Lsx.png";
 
     private boolean showAllFile = true;
 
