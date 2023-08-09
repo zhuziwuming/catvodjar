@@ -1,8 +1,9 @@
 package com.github.catvod.spider;
 
 import android.content.Context;
+import android.text.TextUtils;
 import com.github.catvod.crawler.Spider;
-import com.github.catvod.net.SSLSocketFactoryCompat;
+import com.github.catvod.net.OkHttp;
 import okhttp3.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -11,9 +12,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -52,68 +51,15 @@ public class SixV extends Spider {
     @Override
     public String homeContent(boolean filter) {
         try {
-            JSONObject domesticTV = new JSONObject()
-                    .put("type_id", "dianshiju/guoju")
-                    .put("type_name", "国剧");
-
-            JSONObject japaneseAndKoreanTV = new JSONObject()
-                    .put("type_id", "dianshiju/rihanju")
-                    .put("type_name", "日韩剧");
-
-            JSONObject europeanAndAmericanTV = new JSONObject()
-                    .put("type_id", "dianshiju/oumeiju")
-                    .put("type_name", "欧美剧");
-            
-            JSONObject comedyMovie = new JSONObject()
-                    .put("type_id", "xijupian")
-                    .put("type_name", "喜剧片");
-
-            JSONObject actMovie = new JSONObject()
-                    .put("type_id", "dongzuopian")
-                    .put("type_name", "动作片");
-
-            JSONObject loveFilm = new JSONObject()
-                    .put("type_id", "aiqingpian")
-                    .put("type_name", "爱情片");
-
-            JSONObject scientificMovie = new JSONObject()
-                    .put("type_id", "kehuanpian")
-                    .put("type_name", "科幻片");
-
-            JSONObject horribleMovie = new JSONObject()
-                    .put("type_id", "kongbupian")
-                    .put("type_name", "恐怖片");
-
-            JSONObject plotMovie = new JSONObject()
-                    .put("type_id", "juqingpian")
-                    .put("type_name", "剧情片");
-
-            JSONObject warMovie = new JSONObject()
-                    .put("type_id", "zhanzhengpian")
-                    .put("type_name", "战争片");
-
-            JSONObject documentaryMovie = new JSONObject()
-                    .put("type_id", "jilupian")
-                    .put("type_name", "纪录片");
-
-            JSONObject animeMovie = new JSONObject()
-                    .put("type_id", "donghuapian")
-                    .put("type_name", "动画片");
-
-
-            JSONArray classes = new JSONArray()
-                    .put(comedyMovie)
-                    .put(actMovie)
-                    .put(loveFilm)
-                    .put(scientificMovie)
-                    .put(horribleMovie)
-                    .put(plotMovie)
-                    .put(warMovie)
-                    .put(documentaryMovie)
-                    .put(animeMovie)
-                    .put(domesticTV)
-                    .put(japaneseAndKoreanTV)
-                    .put(europeanAndAmericanTV);
+            JSONArray classes = new JSONArray();
+            List<String> typeIds = Arrays.asList("xijupian", "dongzuopian", "aiqingpian", "kehuanpian", "kongbupian", "juqingpian", "zhanzhengpian", "jilupian", "donghuapian", "dianshiju/guoju", "dianshiju/rihanju", "dianshiju/oumeiju");
+            List<String> typeNames = Arrays.asList("喜剧片", "动作片", "爱情片", "科幻片", "恐怖片", "剧情片", "战争片", "纪录片", "动画片", "国剧", "日韩剧", "欧美剧");
+            for (int i = 0; i < typeIds.size(); i++) {
+                JSONObject c = new JSONObject();
+                c.put("type_id", typeIds.get(i));
+                c.put("type_name", typeNames.get(i));
+                classes.put(c);
+            }
             JSONObject result = new JSONObject()
                     .put("class", classes);
             return result.toString();
@@ -130,7 +76,7 @@ public class SixV extends Spider {
             if (!pg.equals("1")) {
                 cateURL += "/index_" + pg + ".html";
             }
-            String html = getWebContent(cateURL, getHeader());
+            String html = OkHttp.string(cateURL, getHeader());
             Elements items = Jsoup.parse(html).select("#post_container .post_hover");
             JSONArray videos = new JSONArray();
             for (Element item : items) {
@@ -157,52 +103,30 @@ public class SixV extends Spider {
         return "";
     }
 
-    private String getWebContent(String targetURL, Map<String, String> header) throws Exception {
-        Request.Builder builder = new Request.Builder();
-        for (String key : header.keySet()) {
-            String value = header.get(key);
-            builder.addHeader(key, value);
-        }
-        Request request = builder
-                .url(targetURL)
-                .get()
-                .build();
-        OkHttpClient okHttpClient = new OkHttpClient()
-                .newBuilder()
-                .sslSocketFactory(new SSLSocketFactoryCompat(), SSLSocketFactoryCompat.trustAllCert)
-                .hostnameVerifier((hostname, session) -> true)
-                .build();
-        Response response = okHttpClient.newCall(request).execute();
-        if (response.body() == null) return "";
-        String content = response.body().string();
-        response.close();
-        return content;
-    }
-
     @Override
     public String detailContent(List<String> ids) {
         try {
             String vid = ids.get(0);
             String detailURL = siteURL + vid;
-            String html = getWebContent(detailURL, getDetailHeader());
+            String html = OkHttp.string(detailURL, getDetailHeader());
             Document doc = Jsoup.parse(html);
             Elements sourceList = doc.select("#post_content");
-            // 磁力链接只能选择一条，多了，TVBox就无法识别播放了。
-            // 另外磁力链接的播放，即使返回到首页，不在播放页面了，磁力依旧在后台继续下载
-            // 以上这些问题估计只能靠 TVBox 的作者去解决了。
 
             String vod_play_from = "magnet";
-            String vod_play_url = "";
+            Map<String, String> playMap = new LinkedHashMap<>();
+            int i = 0;
             for (Element source : sourceList) {
-                Elements aList = source.select("table").select("a");
+                i++;
+                Elements aList = source.select("table a");
+                List<String> vodItems = new ArrayList<>();
                 for (Element a : aList) {
-                    // 如果已经有一条磁力链接了，那么退出for循环
-                    // 因为多条磁力链接，TVBox 似乎不会识别播放
-                    if (!vod_play_url.equals("")) break;
                     String episodeURL = a.attr("href");
                     String episodeName = a.text();
                     if (!episodeURL.startsWith("magnet")) continue;
-                    vod_play_url = episodeName + "$" + episodeURL;
+                    vodItems.add(episodeName + "$" + episodeURL);
+                }
+                if (vodItems.size() > 0) {
+                    playMap.put(vod_play_from + i, TextUtils.join("#", vodItems));
                 }
             }
 
@@ -220,7 +144,7 @@ public class SixV extends Spider {
             String director = getActorOrDirector(Pattern.compile("◎导　　演　(.*?)<br>"), partHTML);
             String description = getDescription(Pattern.compile("◎简　　介(.*?)<hr>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL), partHTML);
 
-            JSONObject vodInfo = new JSONObject()
+            JSONObject vod = new JSONObject()
                     .put("vod_id", ids.get(0))
                     .put("vod_name", name)
                     .put("vod_pic", pic)
@@ -231,15 +155,13 @@ public class SixV extends Spider {
                     .put("vod_actor", actor)
                     .put("vod_director", director)
                     .put("vod_content", description);
-            if (vod_play_url.length() > 0) {
-                vodInfo.put("vod_play_from", vod_play_from)
-                        .put("vod_play_url", vod_play_url);
+            if (playMap.size() > 0) {
+                vod.put("vod_play_from", TextUtils.join("$$$", playMap.keySet()));
+                vod.put("vod_play_url", TextUtils.join("$$$", playMap.values()));
             }
 
-            JSONArray jsonArray = new JSONArray()
-                    .put(vodInfo);
-            JSONObject result = new JSONObject()
-                    .put("list", jsonArray);
+            JSONArray jsonArray = new JSONArray().put(vod);
+            JSONObject result = new JSONObject().put("list", jsonArray);
             return result.toString();
         } catch (Exception e) {
             e.printStackTrace();
@@ -299,11 +221,7 @@ public class SixV extends Spider {
                     .addHeader("Referer", siteURL + "/")
                     .post(formBody)
                     .build();
-            OkHttpClient okHttpClient = new OkHttpClient()
-                    .newBuilder()
-                    .sslSocketFactory(new SSLSocketFactoryCompat(), SSLSocketFactoryCompat.trustAllCert)
-                    .hostnameVerifier((hostname, session) -> true)
-                    .build();
+            OkHttpClient okHttpClient = OkHttp.client();
             Response response = okHttpClient.newCall(request).execute();
             if (response.body() == null) return "";
             String html = response.body().string();
