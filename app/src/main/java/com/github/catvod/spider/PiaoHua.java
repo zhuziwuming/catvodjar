@@ -33,8 +33,8 @@ public class PiaoHua extends Spider {
     public String homeContent(boolean filter) {
         try {
             JSONArray classes = new JSONArray();
-            List<String> typeIds = Arrays.asList("/dongzuo/", "/xiju/", "/aiqing/", "/kehuan/", "/juqing/", "/xuanyi/", "/zhanzheng/", "/kongbu/", "/zainan/", "/dongman/", "/jilu/");
-            List<String> typeNames = Arrays.asList("动作片", "喜剧片", "爱情片", "科幻片", "剧情片", "悬疑片", "战争片", "恐怖片", "灾难片", "动漫", "纪录片");
+            List<String> typeIds = Arrays.asList("/lianxuju/","/dongzuo/", "/xiju/", "/aiqing/", "/kehuan/", "/juqing/", "/xuanyi/", "/zhanzheng/", "/kongbu/", "/zainan/", "/dongman/", "/jilu/", "/zongyi/");
+            List<String> typeNames = Arrays.asList("连续剧","动作片", "喜剧片", "爱情片", "科幻片", "剧情片", "悬疑片", "战争片", "恐怖片", "灾难片", "动漫", "纪录片", "综艺");
             for (int i = 0; i < typeIds.size(); i++) {
                 JSONObject obj = new JSONObject();
                 obj.put("type_id", typeIds.get(i));
