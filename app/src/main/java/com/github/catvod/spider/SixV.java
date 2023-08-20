@@ -52,8 +52,8 @@ public class SixV extends Spider {
     public String homeContent(boolean filter) {
         try {
             JSONArray classes = new JSONArray();
-            List<String> typeIds = Arrays.asList("xijupian", "dongzuopian", "aiqingpian", "kehuanpian", "kongbupian", "juqingpian", "zhanzhengpian", "jilupian", "donghuapian", "dianshiju/guoju", "dianshiju/rihanju", "dianshiju/oumeiju");
-            List<String> typeNames = Arrays.asList("喜剧片", "动作片", "爱情片", "科幻片", "恐怖片", "剧情片", "战争片", "纪录片", "动画片", "国剧", "日韩剧", "欧美剧");
+            List<String> typeIds = Arrays.asList("dianshiju/guoju", "dianshiju/rihanju", "dianshiju/oumeiju", "xijupian", "dongzuopian", "aiqingpian", "kehuanpian", "kongbupian", "juqingpian", "zhanzhengpian", "jilupian", "donghuapian");
+            List<String> typeNames = Arrays.asList("国剧", "日韩剧", "欧美剧", "喜剧片", "动作片", "爱情片", "科幻片", "恐怖片", "剧情片", "战争片", "纪录片", "动画片");
             for (int i = 0; i < typeIds.size(); i++) {
                 JSONObject c = new JSONObject();
                 c.put("type_id", typeIds.get(i));
